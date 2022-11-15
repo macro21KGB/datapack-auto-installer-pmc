@@ -6,20 +6,51 @@ import ora from 'ora';
 import { Datapack } from './interfaces';
 import inquirer from 'inquirer';
 import fs from 'fs';
+import chalk from 'chalk';
+import os from 'os';
+import path from 'path';
 
 const BASE_URL = 'https://www.planetminecraft.com';
 const SEARCH_URL = BASE_URL + '/data-packs/?keywords='
+
+const showWelcomeMessage = () => {
+    console.log(chalk.green("  _____        _                         _      _____           _        _ _           "));
+    console.log(chalk.green(" |  __ \\      | |                       | |    |_   _|         | |      | | |          "));
+    console.log(chalk.green(" | |  | | __ _| |_ __ _ _ __   __ _  ___| | __   | |  _ __  ___| |_ __ _| | | ___ _ __ "));
+    console.log(chalk.green(" | |  | |/ _` | __/ _` | '_ \\ / _` |/ __| |/ /   | | | '_ \\/ __| __/ _` | | |/ _ \\ '__|"));
+    console.log(chalk.green(" | |__| | (_| | || (_| | |_) | (_| | (__|   <   _| |_| | | \\__ \\ || (_| | | |  __/ |   "));
+    console.log(chalk.green(" |_____/ \\__,_|\\__\\__,_| .__/ \\__,_|\\___|_|\\_\\ |_____|_| |_|___/\\__\\__,_|_|_|\\___|_|   "));
+    console.log(chalk.green("                       | |                                                             "));
+    console.log(chalk.green("                       |_|                                                             "));
+}
 
 
 /*
 * This CLI will be used to download datapack from planetminecraft.com
 */
-
 const normalizeDatapackName = (name: string) => {
     const nameWithoutSpacesAndDots = name.replace(/[\s\.]/g, '-');
 
-    return nameWithoutSpacesAndDots.toLowerCase();
+    // replace multiple - with one -
+    const normalized = nameWithoutSpacesAndDots.replace(/-{2,}/g, '-');
+
+    return normalized.toLowerCase();
 }
+
+const getCurrentUser = (): string => {
+    return os.userInfo().username;
+}
+
+const getMinecraftPath = (): string => {
+    return `C:\\Users\\${getCurrentUser()}\\AppData\\Roaming\\.minecraft`;
+}
+
+const getMinecraftWorlds = (): string[] => {
+
+    const worlds = fs.readdirSync(`${getMinecraftPath()}\\saves`);
+    return worlds;
+}
+
 
 const getDownloadUrl = async (datapack: Datapack): Promise<string> => {
 
@@ -31,7 +62,11 @@ const getDownloadUrl = async (datapack: Datapack): Promise<string> => {
 }
 
 // download file from url with axios
-const downloadDatapack = async (datapack: Datapack) => {
+const downloadDatapack = async (datapack: Datapack, outDir?: string) => {
+
+    if (outDir === undefined)
+        outDir = "./";
+
     const spinner = ora('Downloading...').start();
 
     const downloadUrl = await getDownloadUrl(datapack);
@@ -47,10 +82,15 @@ const downloadDatapack = async (datapack: Datapack) => {
         responseType: 'stream'
     });
 
-    const writer = fs.createWriteStream(normalizeDatapackName(datapack.name) + '.zip');
-    response.data.pipe(writer);
+    try {
+        const writer = fs.createWriteStream(path.join(outDir, normalizeDatapackName(datapack.name) + '.zip'));
+        response.data.pipe(writer);
+        spinner.succeed('Datapack downloaded successfully');
+    } catch (err) {
+        spinner.fail('Could not download file');
+        return;
+    }
 
-    spinner.succeed('Datapack downloaded');
 };
 
 
@@ -74,7 +114,7 @@ const getDatapacksFromPMC = async (url: string): Promise<Datapack[]> => {
     return datapacks;
 }
 
-
+showWelcomeMessage();
 yargs(hideBin(process.argv))
     .command('search [query]', 'search datapacks on PMC', (yargs) => {
         return yargs
@@ -92,11 +132,19 @@ yargs(hideBin(process.argv))
             choices: datapacks.map((datapack) => datapack.name)
         });
 
-        console.log(result.datapack);
         const datapackToDownload = datapacks.find((datapack) => datapack.name === result.datapack);
 
+        const worlds = getMinecraftWorlds();
+        const worldResult = await inquirer.prompt({
+            type: 'list',
+            name: 'world',
+            message: 'Select a world to install the datapack',
+            choices: worlds,
+        });
+
+        const worldToInstallDatapackPath = path.join(getMinecraftPath(), 'saves', worldResult.world, 'datapacks');
         if (datapackToDownload) {
-            await downloadDatapack(datapackToDownload);
+            await downloadDatapack(datapackToDownload, worldToInstallDatapackPath);
         }
 
     }).parse();

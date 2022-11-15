@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "type": "module",
+  "bin": "dist/main.js",
   "main": "index.js",
   "scripts": {
     "dev": "tsc -w ",
