@@ -3,7 +3,7 @@ import { hideBin } from 'yargs/helpers'
 import * as cheerio from 'cheerio';
 import axios from 'axios';
 import ora from 'ora';
-import { Datapack } from './interfaces';
+import { Datapack, Result } from './interfaces';
 import inquirer from 'inquirer';
 import fs from 'fs';
 import chalk from 'chalk';
@@ -29,12 +29,8 @@ const showWelcomeMessage = () => {
 * This CLI will be used to download datapack from planetminecraft.com
 */
 const normalizeDatapackName = (name: string) => {
-    const nameWithoutSpacesAndDots = name.replace(/[\s\.]/g, '-');
-
-    // replace multiple - with one -
-    const normalized = nameWithoutSpacesAndDots.replace(/-{2,}/g, '-');
-
-    return normalized.toLowerCase();
+    const nameWithoutSpacesAndDots = name.replace(/\-/g, '').replace(/\s+/g, '-');
+    return nameWithoutSpacesAndDots.toLowerCase();
 }
 
 const getCurrentUser = (): string => {
@@ -51,14 +47,27 @@ const getMinecraftWorlds = (): string[] => {
     return worlds;
 }
 
+const getMinecraftResourcePackPath = (): string => {
+    return `${getMinecraftPath()}\\resourcepacks`;
+}
 
-const getDownloadUrl = async (datapack: Datapack): Promise<string> => {
-
-    const page = await axios.get(BASE_URL + datapack.url);
+const getDownloadLinksFromPage = async (datapackPageUrl: string): Promise<Result> => {
+    const spinner = ora('Getting download links...').start();
+    const page = await axios.get(BASE_URL + datapackPageUrl);
     const $ = cheerio.load(page.data);
 
+
     const downloadUrl = $('#resource-options > ul.content-actions > li > a').get(0)?.attribs.href ?? '';
-    return downloadUrl;
+    const resourcePackDownloadUrl = $('#dependancies > div.content-actions > li > a').get(0)?.attribs.href ?? undefined;
+    // se esiste nella pagina un bottone con la scritta "DOWNLOAD REQUIRED RESOURCE PACK", allora il datapack richiede un resource pack
+
+    spinner.succeed('Download links found');
+
+    return {
+        datapackDownloadUrl: downloadUrl,
+        resourcePackDownloadUrl: resourcePackDownloadUrl
+    };
+
 }
 
 // download file from url with axios
@@ -67,14 +76,37 @@ const downloadDatapack = async (datapack: Datapack, outDir?: string) => {
     if (outDir === undefined)
         outDir = "./";
 
-    const spinner = ora('Downloading...').start();
+    const resultFromPage = await getDownloadLinksFromPage(datapack.url);
 
-    const downloadUrl = await getDownloadUrl(datapack);
-
-    if (downloadUrl === '') {
-        spinner.fail('Could not find download link');
+    if (resultFromPage.datapackDownloadUrl === '') {
+        console.log(chalk.red('Could not find download link'));
         return;
     }
+
+    const datapackName = normalizeDatapackName(datapack.name) + '.zip';
+    await downloadStreamOfDataToFile(resultFromPage.datapackDownloadUrl, outDir, datapackName);
+
+
+    if (resultFromPage.resourcePackDownloadUrl) {
+
+        const askForResourcePack = await inquirer.prompt({
+            type: 'confirm',
+            name: 'downloadResourcePack',
+            message: 'This datapack requires a resource pack. Do you want to download it?',
+            default: true
+        });
+
+        if (!askForResourcePack.downloadResourcePack)
+            return;
+
+        const resourcePackName = normalizeDatapackName(datapack.name) + '-resource-pack.zip';
+        await downloadStreamOfDataToFile(resultFromPage.resourcePackDownloadUrl, getMinecraftResourcePackPath(), resourcePackName);
+
+    }
+};
+
+const downloadStreamOfDataToFile = async (downloadUrl: string, outDir: string, fileName: string) => {
+    const spinner = ora('Downloading...').start();
 
     const response = await axios({
         url: BASE_URL + downloadUrl,
@@ -83,15 +115,15 @@ const downloadDatapack = async (datapack: Datapack, outDir?: string) => {
     });
 
     try {
-        const writer = fs.createWriteStream(path.join(outDir, normalizeDatapackName(datapack.name) + '.zip'));
+        const writer = fs.createWriteStream(path.join(outDir, fileName));
         response.data.pipe(writer);
-        spinner.succeed('Datapack downloaded successfully');
+        spinner.succeed('Resource Pack downloaded successfully');
     } catch (err) {
         spinner.fail('Could not download file');
         return;
     }
 
-};
+}
 
 
 const getDatapacksFromPMC = async (url: string): Promise<Datapack[]> => {
@@ -115,6 +147,7 @@ const getDatapacksFromPMC = async (url: string): Promise<Datapack[]> => {
 }
 
 showWelcomeMessage();
+
 yargs(hideBin(process.argv))
     .command('search [query]', 'search datapacks on PMC', (yargs) => {
         return yargs
@@ -123,6 +156,11 @@ yargs(hideBin(process.argv))
                 type: 'string'
             })
     }, async (argv) => {
+
+        if (argv.query === undefined) {
+            console.log(chalk.red('Please provide a datapack name'));
+            return;
+        }
 
         const datapacks = await getDatapacksFromPMC(SEARCH_URL + argv.query?.replaceAll(' ', '+'));
         const result = await inquirer.prompt({
@@ -135,15 +173,26 @@ yargs(hideBin(process.argv))
         const datapackToDownload = datapacks.find((datapack) => datapack.name === result.datapack);
 
         const worlds = getMinecraftWorlds();
+        const placesToDownload = [...worlds, 'current directory'];
+
         const worldResult = await inquirer.prompt({
             type: 'list',
             name: 'world',
             message: 'Select a world to install the datapack',
-            choices: worlds,
+            choices: placesToDownload,
         });
 
-        const worldToInstallDatapackPath = path.join(getMinecraftPath(), 'saves', worldResult.world, 'datapacks');
-        if (datapackToDownload) {
+        const chosenDownloadPlace = worldResult.world;
+
+        if (!datapackToDownload) {
+            console.log(chalk.red('Could not find datapack'));
+            return;
+        }
+
+        if (chosenDownloadPlace === 'current directory') {
+            downloadDatapack(datapackToDownload, './');
+        } else {
+            const worldToInstallDatapackPath = path.join(getMinecraftPath(), 'saves', chosenDownloadPlace, 'datapacks');
             await downloadDatapack(datapackToDownload, worldToInstallDatapackPath);
         }
 
