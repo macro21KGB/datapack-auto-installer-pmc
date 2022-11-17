@@ -13,6 +13,7 @@ import path from 'path';
 const BASE_URL = 'https://www.planetminecraft.com';
 const SEARCH_URL = BASE_URL + '/data-packs/?keywords='
 
+
 const showWelcomeMessage = () => {
     console.log(chalk.green("  _____        _                         _      _____           _        _ _           "));
     console.log(chalk.green(" |  __ \\      | |                       | |    |_   _|         | |      | | |          "));
@@ -29,7 +30,7 @@ const showWelcomeMessage = () => {
 * This CLI will be used to download datapack from planetminecraft.com
 */
 const normalizeDatapackName = (name: string) => {
-    const nameWithoutSpacesAndDots = name.replace(/\-/g, '').replace(/\s+/g, '-');
+    const nameWithoutSpacesAndDots = name.replace(/\-/g, ' ').replace(/\s+/g, '-');
     return nameWithoutSpacesAndDots.toLowerCase();
 }
 
@@ -51,6 +52,11 @@ const getMinecraftResourcePackPath = (): string => {
     return `${getMinecraftPath()}\\resourcepacks`;
 }
 
+const extractDatapackLinkFromUrl = (url: string): string => {
+    const datapackLink = url.replace(BASE_URL, '');
+    return datapackLink;
+}
+
 const getDownloadLinksFromPage = async (datapackPageUrl: string): Promise<Result> => {
     const spinner = ora('Getting download links...').start();
     const page = await axios.get(BASE_URL + datapackPageUrl);
@@ -70,7 +76,11 @@ const getDownloadLinksFromPage = async (datapackPageUrl: string): Promise<Result
 
 }
 
-// download file from url with axios
+/**
+ * 
+ * @param datapack DataPack to download
+ * @param outDir Directory where to download the datapack
+ */
 const downloadDatapack = async (datapack: Datapack, outDir?: string) => {
 
     if (outDir === undefined)
@@ -117,7 +127,7 @@ const downloadStreamOfDataToFile = async (downloadUrl: string, outDir: string, f
     try {
         const writer = fs.createWriteStream(path.join(outDir, fileName));
         response.data.pipe(writer);
-        spinner.succeed('Resource Pack downloaded successfully');
+        spinner.succeed(fileName + ' downloaded successfully');
     } catch (err) {
         spinner.fail('Could not download file');
         return;
@@ -154,23 +164,37 @@ yargs(hideBin(process.argv))
             .positional('query', {
                 describe: 'query to search',
                 type: 'string'
+            }).option('link', {
+                alias: 'l',
+                describe: 'utilize link to download datapack',
+                type: 'boolean',
             })
     }, async (argv) => {
+
+        let datapacks: Datapack[] = [];
+        let datapackToDownload: Datapack | undefined = undefined;
 
         if (argv.query === undefined) {
             console.log(chalk.red('Please provide a datapack name'));
             return;
         }
 
-        const datapacks = await getDatapacksFromPMC(SEARCH_URL + argv.query?.replaceAll(' ', '+'));
-        const result = await inquirer.prompt({
-            type: 'list',
-            name: 'datapack',
-            message: 'Select a datapack',
-            choices: datapacks.map((datapack) => datapack.name)
-        });
+        if (argv.link) {
+            const datapackPageUrl = extractDatapackLinkFromUrl(argv.query);
+            const result = await getDownloadLinksFromPage(datapackPageUrl);
 
-        const datapackToDownload = datapacks.find((datapack) => datapack.name === result.datapack);
+            if (result.datapackDownloadUrl === '') {
+                console.log(chalk.red('Could not find download link'));
+                return;
+            }
+
+            datapackToDownload = {
+                name: datapackPageUrl.split('/')[2]!,
+                url: datapackPageUrl
+            }
+        } else {
+            datapackToDownload = await selectDatapackToDownload();
+        }
 
         const worlds = getMinecraftWorlds();
         const placesToDownload = [...worlds, 'current directory'];
@@ -196,4 +220,18 @@ yargs(hideBin(process.argv))
             await downloadDatapack(datapackToDownload, worldToInstallDatapackPath);
         }
 
+
+        async function selectDatapackToDownload() {
+            datapacks = await getDatapacksFromPMC(SEARCH_URL + argv.query?.replaceAll(' ', '+'));
+
+            const result = await inquirer.prompt({
+                type: 'list',
+                name: 'datapack',
+                message: 'Select a datapack',
+                choices: datapacks.map((datapack) => datapack.name)
+            });
+
+            const datapackToDownload = datapacks.find((datapack) => datapack.name === result.datapack);
+            return datapackToDownload;
+        }
     }).parse();
