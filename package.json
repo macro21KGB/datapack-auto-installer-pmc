@@ -1,10 +1,13 @@
 {
-  "name": "datapack-auto-installer",
+  "name": "@macro21kgb/datapack-installer",
   "version": "1.0.0",
   "description": "",
   "type": "module",
   "bin": "dist/main.js",
-  "main": "index.js",
+  "main": "dist/main.js",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "tsc -w ",
     "build": "tsc"
