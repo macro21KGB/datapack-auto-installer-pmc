@@ -1,6 +1,6 @@
 {
   "name": "datapack-installer",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "",
   "type": "module",
   "bin": "dist/index.js",
