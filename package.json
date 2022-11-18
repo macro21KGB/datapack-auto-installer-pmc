@@ -1,5 +1,5 @@
 {
-  "name": "@macro21kgb/datapack-installer",
+  "name": "datapack-installer",
   "version": "1.0.0",
   "description": "",
   "type": "module",
