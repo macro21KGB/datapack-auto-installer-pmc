@@ -3,9 +3,7 @@
   "version": "1.0.5",
   "description": "",
   "type": "module",
-  "bin": {
-    "datapack-installer": "dist/index.js"
-  },
+  "bin": "dist/main.js",
   "main": "dist/main.js",
   "files": [
     "dist"
