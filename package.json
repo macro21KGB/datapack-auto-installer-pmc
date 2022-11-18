@@ -1,18 +1,16 @@
 {
   "name": "datapack-installer",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "",
   "type": "module",
-  "bin": {
-    "datapack-installer": "dist/main.js"
-  },
-  "main": "dist/main.js",
+  "bin": "dist/index.js",
+  "main": "dist/index.js",
   "files": [
     "dist"
   ],
   "scripts": {
-    "start": "node dist/main.js",
-    "start-modules": "node dist/main.js --modules",
+    "start": "node dist/index.js",
+    "start-modules": "node dist/index.js --modules",
     "dev": "tsc -w ",
     "build": "tsc"
   },
