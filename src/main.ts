@@ -7,7 +7,7 @@ import { Datapack, Result } from './interfaces';
 import inquirer from 'inquirer';
 import fs from 'fs';
 import chalk from 'chalk';
-import os from 'os';
+import { getMinecraftPath, getMinecraftWorlds, getMinecraftResourcePackPath } from "./utils.js"
 import path from 'path';
 
 const BASE_URL = 'https://www.planetminecraft.com';
@@ -31,25 +31,8 @@ const showWelcomeMessage = () => {
 */
 const normalizeDatapackName = (name: string) => {
     const nameWithoutSpacesAndDots = name.replace(/\-/g, ' ').replace(/\s+/g, '-');
-    return nameWithoutSpacesAndDots.toLowerCase();
-}
-
-const getCurrentUser = (): string => {
-    return os.userInfo().username;
-}
-
-const getMinecraftPath = (): string => {
-    return `C:\\Users\\${getCurrentUser()}\\AppData\\Roaming\\.minecraft`;
-}
-
-const getMinecraftWorlds = (): string[] => {
-
-    const worlds = fs.readdirSync(`${getMinecraftPath()}\\saves`);
-    return worlds;
-}
-
-const getMinecraftResourcePackPath = (): string => {
-    return `${getMinecraftPath()}\\resourcepacks`;
+    const normalized = nameWithoutSpacesAndDots.replaceAll(".", "");
+    return normalized.toLowerCase();
 }
 
 const extractDatapackLinkFromUrl = (url: string): string => {
@@ -159,7 +142,7 @@ const getDatapacksFromPMC = async (url: string): Promise<Datapack[]> => {
 showWelcomeMessage();
 
 yargs(hideBin(process.argv))
-    .command('search [query]', 'search datapacks on PMC', (yargs) => {
+    .command('install [query]', 'install datapacks on PMC', (yargs) => {
         return yargs
             .positional('query', {
                 describe: 'query to search',
