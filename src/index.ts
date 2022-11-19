@@ -8,10 +8,9 @@ import { Datapack, Result } from './interfaces';
 import inquirer from 'inquirer';
 import fs from 'fs';
 import chalk from 'chalk';
-import { getMinecraftPath, getMinecraftWorlds, getMinecraftResourcePackPath } from "./utils.js"
+import { getMinecraftPath, getMinecraftWorlds, getMinecraftResourcePackPath, normalizeDatapackName, extractDatapackLinkFromUrl, BASE_URL } from "./utils.js"
 import path from 'path';
 
-const BASE_URL = 'https://www.planetminecraft.com';
 const SEARCH_URL = BASE_URL + '/data-packs/?keywords='
 
 
@@ -30,16 +29,7 @@ const showWelcomeMessage = () => {
 /*
 * This CLI will be used to download datapack from planetminecraft.com
 */
-const normalizeDatapackName = (name: string) => {
-    const nameWithoutSpacesAndDots = name.replace(/\-/g, ' ').replace(/\s+/g, '-');
-    const normalized = nameWithoutSpacesAndDots.replaceAll(".", "");
-    return normalized.toLowerCase();
-}
 
-const extractDatapackLinkFromUrl = (url: string): string => {
-    const datapackLink = url.replace(BASE_URL, '');
-    return datapackLink;
-}
 
 const getDownloadLinksFromPage = async (datapackPageUrl: string): Promise<Result> => {
     const spinner = ora('Getting download links...').start();
