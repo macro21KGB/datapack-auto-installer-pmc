@@ -1,5 +1,8 @@
 import os from 'os';
 import fs from 'fs';
+import ora from 'ora';
+import axios from 'axios';
+import path from 'path';
 
 export const BASE_URL = 'https://www.planetminecraft.com';
 
@@ -30,4 +33,24 @@ export const normalizeDatapackName = (name: string) => {
 export const extractDatapackLinkFromUrl = (url: string): string => {
   const datapackLink = url.replace(BASE_URL, '');
   return datapackLink;
+}
+
+export const downloadStreamOfDataToFile = async (downloadUrl: string, outDir: string, fileName: string) => {
+  const spinner = ora('Downloading...').start();
+
+  const response = await axios({
+    url: BASE_URL + downloadUrl,
+    method: 'GET',
+    responseType: 'stream'
+  });
+
+  try {
+    const writer = fs.createWriteStream(path.join(outDir, fileName));
+    response.data.pipe(writer);
+    spinner.succeed(fileName + ' downloaded successfully');
+  } catch (err) {
+    spinner.fail('Could not download file');
+    return;
+  }
+
 }
