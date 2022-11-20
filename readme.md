@@ -1,5 +1,7 @@
 # Datapack Installer
 
+![Datapack Installer](./gifusage.gif)
+
 This CLI app allows you to search datapacks on Planet-Minecraft(PMC) and install them, 
 
 If a resource pack is needed, it will also download the resource pack in the `resourcepacks` in your `.minecraft` folder 
@@ -16,16 +18,24 @@ or use it on the fly with npx
 ```bash
  npx datapack-installer install <datapack name>
 ```
-## Usage/Examples
+## Usage
 
 ```bash
 datapack-installer install <datapack name>
 ```
 or use a PlanetMinecraft Link
-```c
-datapack-installer install -l <pmc link>
-```
 
+```bash
+datapack-installer install -l <pmc url link>
+```
+## Examples
+
+```bash
+datapack-installer install "mining device"
+```
+```bash
+datapack-installer install -l "https://www.planetminecraft.com/data-pack/mining-device/"
+```
 
 ## Authors
 
