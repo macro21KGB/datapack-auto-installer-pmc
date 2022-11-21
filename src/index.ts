@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers'
-import { Datapack } from './interfaces';
+import { Datapack, SavedDatapack } from './interfaces';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { getMinecraftPath, getMinecraftWorlds, getMinecraftResourcePackPath, normalizeDatapackName, BASE_URL, downloadStreamOfDataToFile } from "./utils.js"
 import path from 'path';
 import { getDatapackFromPMCLink, getDatapacksFromPMC, getDownloadLinksFromPage } from './pmc_handler.js';
+import { addDatapackToConfig, getConfigPath } from './configs.js';
 
 const SEARCH_URL = BASE_URL + '/data-packs/?keywords='
 const CURRENT_DIRECTORY_NAME = "Current Directory";
@@ -28,12 +29,13 @@ const showWelcomeMessage = () => {
  * @param datapack DataPack to download
  * @param outDir Directory where to download the datapack
  */
-const downloadDatapack = async (datapack: Datapack, outDir?: string) => {
+const downloadDatapack = async (datapack: Datapack, outDir?: string): Promise<void> => {
 
     if (outDir === undefined)
         outDir = "./";
 
     const resultFromPage = await getDownloadLinksFromPage(datapack.url);
+
 
     if (resultFromPage.datapackDownloadUrl === '') {
         console.log(chalk.red('Could not find download link'));
@@ -42,6 +44,12 @@ const downloadDatapack = async (datapack: Datapack, outDir?: string) => {
 
     const datapackName = normalizeDatapackName(datapack.name) + '.zip';
     await downloadStreamOfDataToFile(resultFromPage.datapackDownloadUrl, outDir, datapackName);
+
+    const datapackToSave: SavedDatapack = {
+        name: datapack.name,
+        datapackPath: path.join(outDir, normalizeDatapackName(datapack.name)),
+        resourcePackPath: ''
+    }
 
 
     if (resultFromPage.resourcePackDownloadUrl) {
@@ -59,7 +67,10 @@ const downloadDatapack = async (datapack: Datapack, outDir?: string) => {
         const resourcePackName = normalizeDatapackName(datapack.name) + '-resource-pack.zip';
         await downloadStreamOfDataToFile(resultFromPage.resourcePackDownloadUrl, getMinecraftResourcePackPath(), resourcePackName);
 
+        datapackToSave.resourcePackPath = path.join(getMinecraftResourcePackPath(), resourcePackName);
     }
+
+    addDatapackToConfig(datapackToSave);
 };
 
 showWelcomeMessage();
@@ -129,4 +140,10 @@ yargs(hideBin(process.argv))
             const datapackToDownload = datapacks.find((datapack) => datapack.name === result.datapack);
             return datapackToDownload;
         }
-    }).parse();
+    }).command('manage', "manage datapacks and configuration files", () => {
+        const configPath = chalk.bold(chalk.green(getConfigPath()));
+
+        console.log("Configuration file located at " + configPath);
+    }
+    )
+    .parse();

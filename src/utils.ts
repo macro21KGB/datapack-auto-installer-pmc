@@ -3,6 +3,8 @@ import fs from 'fs';
 import ora from 'ora';
 import axios from 'axios';
 import path from 'path';
+import chalk from 'chalk';
+import { getConfigPath, readConfigs } from './configs.js';
 
 export const BASE_URL = 'https://www.planetminecraft.com';
 
@@ -11,7 +13,16 @@ export const getCurrentUser = (): string => {
 }
 
 export const getMinecraftPath = (): string => {
-  return `C:\\Users\\${getCurrentUser()}\\AppData\\Roaming\\.minecraft`;
+
+  const configs = readConfigs();
+
+  // if the path in the config file is not valid, thow an error and show the config path
+  if (!fs.existsSync(configs.minecraftPath)) {
+    console.log(chalk.red(`The path in the config file is not valid. Please check the config file at ${getConfigPath()}`));
+    process.exit(1);
+  }
+
+  return configs.minecraftPath;
 }
 
 export const getMinecraftWorlds = (): string[] => {
