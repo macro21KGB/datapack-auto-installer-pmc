@@ -1,8 +1,7 @@
 import os from 'os';
 import fs from 'fs';
 import ora from 'ora';
-import axios from 'axios';
-import path from 'path';
+import download from 'download';
 import chalk from 'chalk';
 import { getConfigPath, readConfigs } from './configs.js';
 
@@ -48,20 +47,16 @@ export const extractDatapackLinkFromUrl = (url: string): string => {
 
 export const downloadStreamOfDataToFile = async (downloadUrl: string, outDir: string, fileName: string) => {
   const spinner = ora('Downloading...').start();
-
-  const response = await axios({
-    url: BASE_URL + downloadUrl,
-    method: 'GET',
-    responseType: 'stream'
-  });
-
   try {
-    const writer = fs.createWriteStream(path.join(outDir, fileName));
-    response.data.pipe(writer);
-    spinner.succeed(fileName + ' downloaded successfully');
-  } catch (err) {
-    spinner.fail('Could not download file');
-    return;
+
+    // download the zip file from the url
+    await download(BASE_URL + downloadUrl, outDir, { filename: fileName });
+    spinner.succeed(fileName + ' Downloaded');
+
+  } catch {
+    spinner.fail('Download failed');
   }
+
+
 
 }
